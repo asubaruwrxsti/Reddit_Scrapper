@@ -23,7 +23,6 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
     driver = webdriver.Chrome(options=options)
 
     driver.get(url)
-    driver.execute_script()
 
     path = f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}"
     title_path = f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/title"
@@ -107,8 +106,6 @@ def create_video(thread_id, link = "https://www.youtube.com/watch?v=n_Dv4JMiwK8"
             os.makedirs(output_path)
         print("Folder created")
 
-        
-
     except:
         print(f"Could not create folder for {thread_id} \n")
         return
@@ -122,29 +119,37 @@ def getConfig():
 config = getConfig()
 
 username = config['username']
-password = config['password']
 client_id = config['client_id']
 secret = config['secret']
+password = config['password']
 user_agent = config['user_agent']
+subreddit_title = config['subreddit_title']
+subreddit_limit = int(config['subreddit_limit'])
+comment_limit = int(config['comment_limit'])
 
-
-subreddit_title = "askreddit"
-subreddit_limit = 5
-comment_limit = 10
+print(f"Username: {username} \nPassword: {password} \nClient ID: {client_id} \nSecret: {secret} \nUser Agent: {user_agent} \n")
 
 window_size = {
     "width": 375,
     "height": 812
 }
 
-reddit = Reddit (
-    client_id=client_id,
-    client_secret=secret,
-    username=username,
-    password=password,
-    user_agent=user_agent
+try:
+    reddit = Reddit (
+        client_id=client_id,
+        client_secret=secret,
+        username=username,
+        password=password,
+        user_agent=user_agent,
+        read_only=True
     )
+except:
+    print("Could not connect to Reddit \n")
 
-for submission in reddit.subreddit(subreddit_title).hot(limit=subreddit_limit):
-    print(f'Submission title: {submission.title} - Submission ID: {submission.id}')
-    create_image(submission.id, submission.comments, comment_limit, window_size)
+try:
+    for submission in reddit.subreddit(subreddit_title).hot(limit=subreddit_limit):
+        print(f'Submission title: {submission.title} - Submission ID: {submission.id}')
+        create_image(submission.id, submission.comments, comment_limit, window_size)
+
+except Exception as e:
+    print(e)
