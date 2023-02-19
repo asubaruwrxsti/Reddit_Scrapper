@@ -5,6 +5,7 @@ import os
 import time
 from moviepy.editor import *
 from pytube import YouTube
+import random
 
 def create_image(thread_id, comments, comment_limit = 1, window_size = {"width": 375, "height": 812}):
     url = f"https://www.reddit.com/r/AskReddit/comments/{thread_id}"
@@ -30,11 +31,12 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
 
     try:
 
-        # add hidden attribute to header of reddit
         header = driver.find_element(By.XPATH, '//*[@id="SHORTCUT_FOCUSABLE_DIV"]/div[1]/header')
         driver.execute_script("arguments[0].removeAttribute('class')", header)
 
         reddit_title = driver.find_element(By.ID, f"t3_{thread_id}")
+
+        driver.execute_script("arguments[0].scrollIntoView();", reddit_title)
 
         try:
             if not os.path.exists(path):
@@ -43,18 +45,15 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
                 os.makedirs(comments_path)
         except:
             print(f"Could not create folder for {thread_id} \n")
-        
-        # scroll to comment
-        driver.execute_script("arguments[0].scrollIntoView();", reddit_title)
+
         reddit_title.screenshot(f'{title_path}/{thread_id}.png')
         print(f"Screenshot taken for title {thread_id} \n")
     except:
-        print(f"Title {thread_id} not found, +18 or NSFW prompt\n")
+        print(f"Title {thread_id} not found, NSFW prompt\n")
         return
 
     for comment in comments[:comment_limit]:
         try:
-            # hide LOGIN if present
             x_button = driver.find_element(By.CLASS_NAME, "_2qFn4QNDGodlEOt4HDqRcG")
             x_button.click()
             print("Closed 'Log In' prompt \n")
@@ -62,7 +61,6 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
         except:
             print("No 'Log In' prompt \n")
         
-        #if element is not found skip
         try:
             reddit_comment = driver.find_element(By.ID, f"t1_{comment.id}")
 
@@ -78,60 +76,18 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
             print(f"Comment {comment.id} not found \n")
             continue
     
-    # save the title and comments as md file
-    with open(f"{path}/thread.md", "w") as f:
-        f.write(f"# {reddit_title.text} \n")
-        for comment in comments[:comment_limit]:
-            f.write(f"## {comment.body} \n")
+    try:
+        with open(f"{path}/{thread_id}.md", "w") as file:
+            file.write(f"{thread_id} \n")
+            file.write(f"{reddit_title.text} \n")
+            for comment in comments[:comment_limit]:
+                file.write(f"{comment.body} \n")
+    except:
+        print(f"Could not create .md file for {thread_id} \n")
+        return
 
     print("------------ Done ------------ \n")
     driver.quit()
-
-def getConfig():
-    import configparser
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    return config['CREDENTIALS']
-
-config = getConfig()
-
-username = config['username']
-client_id = config['client_id']
-secret = config['secret']
-password = config['password']
-user_agent = config['user_agent']
-subreddit_title = config['subreddit_title']
-subreddit_limit = int(config['subreddit_limit'])
-comment_limit = int(config['comment_limit'])
-
-print(f"Username: {username} \nPassword: {password} \nClient ID: {client_id} \nSecret: {secret} \nUser Agent: {user_agent} \n")
-
-window_size = {
-    "width": 375,
-    "height": 812
-}
-
-try:
-    reddit = Reddit (
-        client_id=client_id,
-        client_secret=secret,
-        username=username,
-        password=password,
-        user_agent=user_agent,
-        read_only=True
-    )
-except:
-    print("Could not connect to Reddit \n")
-
-try:
-    for submission in reddit.subreddit(subreddit_title).hot(limit=subreddit_limit):
-        print(f'Submission title: {submission.title} - Submission ID: {submission.id}')
-        create_image(submission.id, submission.comments, comment_limit, window_size)
-
-except Exception as e:
-    print(e)
-
-
 
 def Download(link, base_clip_path):
     youtubeObject = YouTube(link)
@@ -148,15 +104,103 @@ def Download(link, base_clip_path):
         print("An error has occurred")
 
 def create_video(thread_id, link = "https://www.youtube.com/watch?v=n_Dv4JMiwK8"):
+    print("------------ Creating video ------------ \n")
     
     Download(link, base_clip_path= f"./threads/base_clip/")
-    output_path = f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/clip/"
+    try:
+        output_path = f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/clip/"
+    except:
+        print(f"Could not create folder for {thread_id}, maybe NSFW ? \n")
+        return
     
     try:
         if not os.path.exists(output_path):
-            os.makedirs(output_path)
-        print("Folder created")
-
+            return
     except:
         print(f"Could not create folder for {thread_id} \n")
         return
+    
+    clip = VideoFileClip(f"./threads/base_clip/base_video")
+    print("Base clip loaded \n")
+    print(f"Clip duration: {clip.duration} \n")
+
+    number_of_comments = len(os.listdir(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments"))
+    clip_start = random.randint(20, int(clip.duration // 3))
+    clip_end = (clip_start + 3) + number_of_comments * 4
+
+    print(f"Clip start: {clip_start}")
+    print(f"Clip end: {clip_end}")
+    print(f"Number of comments: {number_of_comments} \n")
+
+    clip = clip.subclip(clip_start, clip_end)
+
+    title_clip = ImageClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/title/{thread_id}.png").set_duration(5)
+    clip = CompositeVideoClip([clip, title_clip.set_position(("center", "center"))])
+
+    clip_counter = 6
+    for comment in os.listdir(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments"):
+        comment_clip = ImageClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments/{comment}").set_duration(3)
+        comment_clip = comment_clip.set_start(clip_counter)
+        clip = CompositeVideoClip([clip, comment_clip.set_position(("center", "center"))])
+        print(f"Comment {comment} added to video at {clip_counter}")
+
+        clip_counter += 4
+
+    try:
+        print(f"\nProcessing video for {thread_id} \n")
+        clip.write_videofile(f"{output_path}/{thread_id}.mp4", fps=24, codec="libx264", audio_codec="aac")
+    except:
+        print(f"Could not create video for {thread_id}")
+        return
+    
+    print(f"Video created for {thread_id} \n")
+
+
+if __name__ == "__main__":
+
+    def getConfig():
+        import configparser
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        return config['CREDENTIALS']
+
+    config = getConfig()
+
+    username = config['username']
+    client_id = config['client_id']
+    secret = config['secret']
+    password = config['password']
+    user_agent = config['user_agent']
+    subreddit_title = config['subreddit_title']
+    subreddit_limit = int(config['subreddit_limit'])
+    comment_limit = int(config['comment_limit'])
+
+    print(f"Username: {username} \nPassword: {password} \nClient ID: {client_id} \nSecret: {secret} \nUser Agent: {user_agent} \n")
+
+    window_size = {
+        "width": 375,
+        "height": 812
+    }
+
+    try:
+        reddit = Reddit (
+            client_id=client_id,
+            client_secret=secret,
+            username=username,
+            password=password,
+            user_agent=user_agent,
+            read_only=True
+        )
+    except:
+        print("Could not connect to Reddit \n")
+
+    try:
+        for submission in reddit.subreddit(subreddit_title).hot(limit=subreddit_limit):
+            print(f'Submission title: {submission.title} - Submission ID: {submission.id}')
+            create_image(submission.id, submission.comments, comment_limit, window_size)
+            create_video(submission.id)
+
+    except Exception as e:
+        print(e)
+    
+    print("------------ Done ------------ \n")
