@@ -77,38 +77,15 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
         except:
             print(f"Comment {comment.id} not found \n")
             continue
+    
+    # save the title and comments as md file
+    with open(f"{path}/thread.md", "w") as f:
+        f.write(f"# {reddit_title.text} \n")
+        for comment in comments[:comment_limit]:
+            f.write(f"## {comment.body} \n")
+
     print("------------ Done ------------ \n")
     driver.quit()
-
-
-def Download(link, base_clip_path):
-    youtubeObject = YouTube(link)
-    youtubeObject = youtubeObject.streams.get_highest_resolution()
-    try:
-        if not os.path.exists(base_clip_path):
-            os.makedirs(base_clip_path)
-
-            youtubeObject.download(output_path= base_clip_path, filename="base_video")
-            print("Download is completed successfully")
-        else:
-            print("File already exists")
-    except:
-        print("An error has occurred")
-
-def create_video(thread_id, link = "https://www.youtube.com/watch?v=n_Dv4JMiwK8"):
-    
-    Download(link, base_clip_path= f"./threads/base_clip/")
-
-    output_path = f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/clip/"
-    
-    try:
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
-        print("Folder created")
-
-    except:
-        print(f"Could not create folder for {thread_id} \n")
-        return
 
 def getConfig():
     import configparser
@@ -153,3 +130,33 @@ try:
 
 except Exception as e:
     print(e)
+
+
+
+def Download(link, base_clip_path):
+    youtubeObject = YouTube(link)
+    youtubeObject = youtubeObject.streams.get_highest_resolution()
+    try:
+        if not os.path.exists(base_clip_path):
+            os.makedirs(base_clip_path)
+
+            youtubeObject.download(output_path= base_clip_path, filename="base_video")
+            print("Download is completed successfully")
+        else:
+            print("File already exists")
+    except:
+        print("An error has occurred")
+
+def create_video(thread_id, link = "https://www.youtube.com/watch?v=n_Dv4JMiwK8"):
+    
+    Download(link, base_clip_path= f"./threads/base_clip/")
+    output_path = f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/clip/"
+    
+    try:
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+        print("Folder created")
+
+    except:
+        print(f"Could not create folder for {thread_id} \n")
+        return
