@@ -6,6 +6,7 @@ import time
 from moviepy.editor import *
 from pytube import YouTube
 import random
+import gtts
 
 def create_image(thread_id, comments, comment_limit = 1, window_size = {"width": 375, "height": 812}):
     url = f"https://www.reddit.com/r/AskReddit/comments/{thread_id}"
@@ -30,12 +31,10 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
     comments_path = f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments"
 
     try:
-
         header = driver.find_element(By.XPATH, '//*[@id="SHORTCUT_FOCUSABLE_DIV"]/div[1]/header')
         driver.execute_script("arguments[0].removeAttribute('class')", header)
 
         reddit_title = driver.find_element(By.ID, f"t3_{thread_id}")
-
         driver.execute_script("arguments[0].scrollIntoView();", reddit_title)
 
         try:
@@ -48,6 +47,7 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
 
         reddit_title.screenshot(f'{title_path}/{thread_id}.png')
         print(f"Screenshot taken for title {thread_id} \n")
+
     except:
         print(f"Title {thread_id} not found, NSFW prompt\n")
         return
@@ -59,18 +59,19 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
             print("Closed 'Log In' prompt \n")
 
         except:
-            print("No 'Log In' prompt \n")
+            print("No 'Log In' prompt")
         
         try:
             reddit_comment = driver.find_element(By.ID, f"t1_{comment.id}")
-
             reddit_comment.screenshot(f'{comments_path}/{comment.id}.png')
 
             #565, 130, 3
             if os.path.getsize(f"{comments_path}/{comment.id}.png") < 7000:
                 os.remove(f".{comments_path}/{comment.id}.png")
             
-            time.sleep(3)
+            else:
+                print(f"Screenshot taken for comment {comment.id} \n")    
+                time.sleep(3)
 
         except:
             print(f"Comment {comment.id} not found \n")
@@ -82,11 +83,32 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
             file.write(f"{reddit_title.text} \n")
             for comment in comments[:comment_limit]:
                 file.write(f"{comment.body} \n")
+        
+        comment_gtts_path = f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments_gtts/"
+        if not os.path.exists(comment_gtts_path):
+            os.makedirs(comment_gtts_path)
+        
+        for comment in comments[:comment_limit]:
+            try:
+                tts = gtts.gTTS(comment.body, lang='en')
+                tts.save(f"{comment_gtts_path}/{comment.id}.mp3")
+            except:
+                print(f"Could not create .mp3 file for {comment.id} \n")
+                continue
+        
+        try:
+            title_gtts = gtts.gTTS(reddit_title.text, lang='en')
+            title_gtts.save(f"{path}/title/title.mp3")
+            print(f'Created .mp3 file for {thread_id} \n')
+        except:
+            print(f"Could not create .mp3 TITLE file for {thread_id} \n")
+            return
+        
+
+
     except:
         print(f"Could not create .md file for {thread_id} \n")
         return
-
-    print("------------ Done ------------ \n")
     driver.quit()
 
 def Download(link, base_clip_path):
@@ -107,53 +129,69 @@ def create_video(thread_id, link = "https://www.youtube.com/watch?v=n_Dv4JMiwK8"
     print("------------ Creating video ------------ \n")
     
     Download(link, base_clip_path= f"./threads/base_clip/")
-    try:
+    print("Base clip downloaded")
+
+    if os.path.exists(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}"):
         output_path = f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/clip/"
-    except:
-        print(f"Could not create folder for {thread_id}, maybe NSFW ? \n")
-        return
-    
-    try:
-        if not os.path.exists(output_path):
+        try:
+            if not os.path.exists(output_path):
+                os.makedirs(output_path)
+        except:
+            print(f"Could not create folder for {thread_id} \n")
             return
-    except:
-        print(f"Could not create folder for {thread_id} \n")
-        return
-    
-    clip = VideoFileClip(f"./threads/base_clip/base_video")
-    print("Base clip loaded \n")
-    print(f"Clip duration: {clip.duration} \n")
+        
+        
+        clip = VideoFileClip(f"./threads/base_clip/base_video")
+        print("Base clip loaded")
+        print(f"Clip duration: {clip.duration} \n")
 
-    number_of_comments = len(os.listdir(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments"))
-    clip_start = random.randint(20, int(clip.duration // 3))
-    clip_end = (clip_start + 3) + number_of_comments * 4
+        number_of_comments = len(os.listdir(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments"))
+        comment_lengths = {}
+        for comment in os.listdir(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments_gtts"):
+            comment_lengths[comment] = AudioFileClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments_gtts/{comment}").duration
 
-    print(f"Clip start: {clip_start}")
-    print(f"Clip end: {clip_end}")
-    print(f"Number of comments: {number_of_comments} \n")
 
-    clip = clip.subclip(clip_start, clip_end)
+        clip_start = random.randint(20, int(clip.duration // 3))
+        clip_end = (clip_start + 3) + [comment_lengths[comment] for comment in comment_lengths][0] 
 
-    title_clip = ImageClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/title/{thread_id}.png").set_duration(5)
-    clip = CompositeVideoClip([clip, title_clip.set_position(("center", "center"))])
+        print(f"Clip start: {clip_start}")
+        print(f"Clip end: {clip_end}")
+        print(f"Number of comments: {number_of_comments} \n")
 
-    clip_counter = 6
-    for comment in os.listdir(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments"):
-        comment_clip = ImageClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments/{comment}").set_duration(3)
-        comment_clip = comment_clip.set_start(clip_counter)
-        clip = CompositeVideoClip([clip, comment_clip.set_position(("center", "center"))])
-        print(f"Comment {comment} added to video at {clip_counter}")
+        clip = clip.subclip(clip_start, clip_end)
+        print("Clip subclipped with length:", clip.duration/60, "minutes")
 
-        clip_counter += 4
+        title_clip = ImageClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/title/{thread_id}.png")
+        title_audio = AudioFileClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/title/title.mp3")
+        title_clip = title_clip.set_duration(title_audio.duration)
+        title_clip = title_clip.set_start(0)
+        print("Title clip created")
 
-    try:
-        print(f"\nProcessing video for {thread_id} \n")
-        clip.write_videofile(f"{output_path}/{thread_id}.mp4", fps=24, codec="libx264", audio_codec="aac")
-    except:
-        print(f"Could not create video for {thread_id}")
-        return
-    
-    print(f"Video created for {thread_id} \n")
+        clip = CompositeVideoClip([clip, title_clip.set_position(("center", "center"))])
+        print("Title clip added to clip")
+
+        clip_counter = title_clip.duration + 2
+        for comment in os.listdir(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments"):
+            print(f"Adding comment {comment} to video")
+            comment_clip = ImageClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments/{comment}").set_duration(comment_lengths[comment[:-4]])
+            comment_clip = comment_clip.set_start(clip_counter)
+            comment_gtts_clip = AudioFileClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments_gtts/{comment[:-4]}.mp3")
+            clip = CompositeVideoClip([clip, comment_clip.set_position(("center", "center"))])
+            clip = CompositeVideoClip([clip, comment_gtts_clip.set_start(clip_counter)])
+            print(f"Comment {comment} added to video at {clip_counter} \n")
+
+            clip_counter += comment_lengths[comment[:-4]] + 2
+
+        try:
+            print(f"\nProcessing video for {thread_id} \n")
+            clip.write_videofile(f"{output_path}/{thread_id}.mp4", fps=24, codec="libx264", audio_codec="aac")
+        except:
+            print(f"Could not create video for {thread_id}")
+            return
+        
+        print(f"Video created for {thread_id} \n")
+    else:
+        print(f'Could not find folder for {thread_id}, skipping \n')
 
 
 if __name__ == "__main__":
@@ -199,6 +237,7 @@ if __name__ == "__main__":
             print(f'Submission title: {submission.title} - Submission ID: {submission.id}')
             create_image(submission.id, submission.comments, comment_limit, window_size)
             create_video(submission.id)
+            print(f'Done !! {submission.id} \n')
 
     except Exception as e:
         print(e)
