@@ -8,7 +8,7 @@ from pytube import YouTube
 import random
 import gtts
 
-def create_image(thread_id, comments, comment_limit = 1, window_size = {"width": 375, "height": 812}):
+def create_image(thread_id, comments, comment_limit = 1, window_size = {"width": 375, "height": 812}, title = ''):
     url = f"https://www.reddit.com/r/AskReddit/comments/{thread_id}"
     
     options = webdriver.ChromeOptions()
@@ -97,15 +97,13 @@ def create_image(thread_id, comments, comment_limit = 1, window_size = {"width":
                 continue
         
         try:
-            title_gtts = gtts.gTTS(reddit_title.text, lang='en')
+            title_gtts = gtts.gTTS(title, lang='en')
             title_gtts.save(f"{path}/title/title.mp3")
             print(f'Created .mp3 file for {thread_id} \n')
         except:
             print(f"Could not create .mp3 TITLE file for {thread_id} \n")
             return
         
-
-
     except:
         print(f"Could not create .md file for {thread_id} \n")
         return
@@ -143,7 +141,7 @@ def create_video(thread_id, link = "https://www.youtube.com/watch?v=n_Dv4JMiwK8"
         
         clip = VideoFileClip(f"./threads/base_clip/base_video")
         print("Base clip loaded")
-        print(f"Clip duration: {clip.duration} \n")
+        print(f"Clip duration: {clip.duration // 60} \n")
 
         number_of_comments = len(os.listdir(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments"))
         comment_lengths = {}
@@ -152,35 +150,44 @@ def create_video(thread_id, link = "https://www.youtube.com/watch?v=n_Dv4JMiwK8"
 
 
         clip_start = random.randint(20, int(clip.duration // 3))
-        clip_end = (clip_start + 3) + [comment_lengths[comment] for comment in comment_lengths][0] 
+        clip_end = (clip_start + 3) + sum(comment_lengths.values()) + len(comment_lengths) * 4
 
         print(f"Clip start: {clip_start}")
         print(f"Clip end: {clip_end}")
         print(f"Number of comments: {number_of_comments} \n")
 
         clip = clip.subclip(clip_start, clip_end)
-        print("Clip subclipped with length:", clip.duration/60, "minutes")
+        print(f"Clip subclipped with length: {clip.duration}")
 
         title_clip = ImageClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/title/{thread_id}.png")
         title_audio = AudioFileClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/title/title.mp3")
-        title_clip = title_clip.set_duration(title_audio.duration)
+        
         title_clip = title_clip.set_start(0)
+        title_clip = title_clip.set_duration(title_audio.duration)
+        title_clip = title_clip.set_audio(title_audio)
         print("Title clip created")
 
         clip = CompositeVideoClip([clip, title_clip.set_position(("center", "center"))])
-        print("Title clip added to clip")
+        print("Title clip added to clip \n")
 
-        clip_counter = title_clip.duration + 2
+        clip_counter = title_clip.duration
         for comment in os.listdir(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments"):
-            print(f"Adding comment {comment} to video")
-            comment_clip = ImageClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments/{comment}").set_duration(comment_lengths[comment[:-4]])
-            comment_clip = comment_clip.set_start(clip_counter)
-            comment_gtts_clip = AudioFileClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments_gtts/{comment[:-4]}.mp3")
-            clip = CompositeVideoClip([clip, comment_clip.set_position(("center", "center"))])
-            clip = CompositeVideoClip([clip, comment_gtts_clip.set_start(clip_counter)])
-            print(f"Comment {comment} added to video at {clip_counter} \n")
 
-            clip_counter += comment_lengths[comment[:-4]] + 2
+            comment_clip = ImageClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments/{comment}")
+            comment_audio = AudioFileClip(f"./threads/{time.strftime('%-d%m%Y')}/{thread_id}/comments_gtts/{comment[:-4]}.mp3")
+
+            print(f"Start: {clip_counter}")
+            print(f"Comment {comment} duration: {comment_audio.duration}")
+
+
+            comment_clip = comment_clip.set_audio(comment_audio)
+            comment_clip = comment_clip.set_start(clip_counter)
+            comment_clip = comment_clip.set_duration(comment_audio.duration)
+            
+            clip_counter += comment_clip.duration
+
+            clip = CompositeVideoClip([clip, comment_clip.set_position(("center", "center"))])
+            print(f"Comment {comment} added to clip with start: {comment_clip.start} \n")
 
         try:
             print(f"\nProcessing video for {thread_id} \n")
@@ -235,7 +242,7 @@ if __name__ == "__main__":
     try:
         for submission in reddit.subreddit(subreddit_title).hot(limit=subreddit_limit):
             print(f'Submission title: {submission.title} - Submission ID: {submission.id}')
-            create_image(submission.id, submission.comments, comment_limit, window_size)
+            create_image(submission.id, submission.comments, comment_limit, window_size, submission.title)
             create_video(submission.id)
             print(f'Done !! {submission.id} \n')
 
