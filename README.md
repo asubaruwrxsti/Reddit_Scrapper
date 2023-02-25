@@ -7,4 +7,4 @@ To Do:
   - [ ] Background music ?
  - [ ] Fix video length
  - [ ] Handle (or skip) long comments
- - [ ] Include subcomments ?
+ - [ ] Include subcomments ? 
