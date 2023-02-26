@@ -2,6 +2,7 @@ from praw import Reddit
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 import os
+from sys import platform
 import time
 from moviepy.editor import *
 from pytube import YouTube
@@ -10,19 +11,41 @@ import gtts
 
 def create_image(thread_id, comments, comment_limit = 1, window_size = {"width": 375, "height": 812}, title = ''):
     url = f"https://www.reddit.com/r/AskReddit/comments/{thread_id}"
+    driver = None
     
-    options = webdriver.ChromeOptions()
-    options.add_argument("--disable-notifications")
-    options.add_argument("--disable-infobars")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--incognito")
-    options.add_argument(f"--window-size={window_size['width']},{window_size['height']}")
+    if platform == "linux" or platform == "linux2":
 
-    driver = webdriver.Chrome(options=options)
+        print("Linux detected \n")
+
+        options = webdriver.ChromeOptions()
+        options.add_argument("--disable-notifications")
+        options.add_argument("--disable-infobars")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--incognito")
+        options.add_argument(f"--window-size={window_size['width']},{window_size['height']}")
+
+        driver = webdriver.Chrome(options=options)
+    
+    elif platform == "win32":
+
+        print("Windows detected \n")
+
+        options = webdriver.EdgeOptions()
+        options.add_argument("--disable-notifications")
+        options.add_argument("--disable-infobars")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--incognito")
+        options.add_argument(f"--window-size={window_size['width']},{window_size['height']}")
+
+        driver = webdriver.Edge(options=options)
 
     driver.get(url)
 
